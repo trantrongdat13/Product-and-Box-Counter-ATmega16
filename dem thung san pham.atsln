@@ -1,22 +1,131 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Atmel Studio Solution File, Format Version 11.00
-VisualStudioVersion = 14.0.23107.0
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "dem thung san pham", "dem thung san pham\dem thung san pham.cproj", "{DCE6C7E3-EE26-4D79-826B-08594B9AD897}"
-EndProject
-Global
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|AVR = Debug|AVR
-		Release|AVR = Release|AVR
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Debug|AVR.ActiveCfg = Debug|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Debug|AVR.Build.0 = Debug|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Release|AVR.ActiveCfg = Release|AVR
-		{DCE6C7E3-EE26-4D79-826B-08594B9AD897}.Release|AVR.Build.0 = Release|AVR
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
-EndGlobal
+/*
+ * Counter for Products and Boxes
+ * ATmega16 @16MHz
+
+ */
+
+#define F_CPU 16000000UL
+#include <avr/io.h>
+#include <util/delay.h>
+#include <stdio.h>
+#include <avr/interrupt.h>
+
+// ============ LCD ??NH NGH?A ============
+#define LCD_PORT PORTC
+#define LCD_DDR  DDRC
+#define RS PC1
+#define RW PC2
+#define EN PC3
+
+volatile uint8_t product_count = 0;
+volatile uint16_t box_count = 0;
+
+// ============ HÀM LCD ============
+void LCD_Command(unsigned char cmnd)
+{
+	LCD_PORT = (LCD_PORT & 0x0F) | (cmnd & 0xF0);
+	LCD_PORT &= ~(1 << RS);
+	LCD_PORT &= ~(1 << RW);
+	LCD_PORT |= (1 << EN);
+	_delay_us(1);
+	LCD_PORT &= ~(1 << EN);
+	_delay_us(100);
+
+	LCD_PORT = (LCD_PORT & 0x0F) | (cmnd << 4);
+	LCD_PORT |= (1 << EN);
+	_delay_us(1);
+	LCD_PORT &= ~(1 << EN);
+	_delay_ms(2);
+}
+
+void LCD_Char(unsigned char data)
+{
+	LCD_PORT = (LCD_PORT & 0x0F) | (data & 0xF0);
+	LCD_PORT |= (1 << RS);
+	LCD_PORT &= ~(1 << RW);
+	LCD_PORT |= (1 << EN);
+	_delay_us(1);
+	LCD_PORT &= ~(1 << EN);
+	_delay_us(100);
+
+	LCD_PORT = (LCD_PORT & 0x0F) | (data << 4);
+	LCD_PORT |= (1 << EN);
+	_delay_us(1);
+	LCD_PORT &= ~(1 << EN);
+	_delay_ms(2);
+}
+
+void LCD_Init(void)
+{
+	LCD_DDR = 0xFE; // PC1–PC7 output
+	_delay_ms(20);
+	LCD_Command(0x02);
+	LCD_Command(0x28);
+	LCD_Command(0x0C);
+	LCD_Command(0x06);
+	LCD_Command(0x01);
+	_delay_ms(2);
+}
+
+void LCD_String(char *str)
+{
+	while (*str) LCD_Char(*str++);
+}
+
+void LCD_SetCursor(uint8_t row, uint8_t col)
+{
+	uint8_t pos = (row == 0) ? (0x80 + col) : (0xC0 + col);
+	LCD_Command(pos);
+}
+
+void LCD_Update()
+{
+	char line1[17], line2[17];
+	sprintf(line1, "San pham: %u  ", product_count);
+	sprintf(line2, "So thung: %u   ", box_count);
+
+	LCD_SetCursor(0, 0);
+	LCD_String(line1);
+	LCD_SetCursor(1, 0);
+	LCD_String(line2);
+}
+
+// ============ NG?T NGOÀI INT0 ============
+ISR(INT0_vect)
+{
+	product_count++;
+
+	if (product_count >= 5)
+	{
+		product_count = 0;
+		box_count++;
+	}
+
+	LCD_Update();  // C?p nh?t LCD khi ??m
+}
+
+// ============ HÀM MAIN ============
+int main(void)
+{
+	DDRD |= (1 << PD0);   // PD0 - LED output
+	DDRD &= ~(1 << PD2);  // PD2 - Sensor input
+	PORTD &= ~(1 << PD2); // KHÔNG b?t pull-up n?i
+
+	LCD_Init();
+	LCD_Update();
+
+	// C?u hình ng?t ngoài INT0 (PD2)
+	MCUCR |= (1 << ISC01);  // c?nh xu?ng
+	GICR  |= (1 << INT0);   // b?t INT0
+	sei();                  // b?t toàn b? ng?t
+
+	while (1)
+	{
+		if (!(PIND & (1 << PD2)))
+			PORTD |= (1 << PD0);   // LED sáng khi nh?n
+		else
+			PORTD &= ~(1 << PD0);  // LED t?t khi nh?
+	}
+}
+
+
