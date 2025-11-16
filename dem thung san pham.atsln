@@ -1,7 +1,5 @@
 /*
- * Product and Box Counter - LED blink once per count
- * ATmega16 @16MHz
- * Có R3 (10kΩ) kéo lên ngoài
+ * BY TRONG DAT CUTE
  */
 
 #define F_CPU 16000000UL
@@ -116,3 +114,4 @@ int main(void) {
 		// Không cần điều khiển LED ở đây nữa (đã làm trong ISR)
 	}
 }
+
