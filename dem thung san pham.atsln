@@ -1,5 +1,5 @@
 /*
- * BY TRONG DAT CUTE
+ * ....
  */
 
 #define F_CPU 16000000UL
@@ -114,4 +114,5 @@ int main(void) {
 		// Không cần điều khiển LED ở đây nữa (đã làm trong ISR)
 	}
 }
+
 
